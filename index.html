@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<style>
+  canvas{
+    width: 100%;
+    height: 100%;
+  }
+</style>
+
+<!-- Load the Paper.js library -->
+<script type="text/javascript" src="js/paper.js"></script>
+<!-- Define inlined PaperScript associate it with myCanvas -->
+<script type="text/paperscript" canvas="myCanvas">
+// Adapted from the following Processing example:
+// http://processing.org/learning/topics/follow3.html
+
+function getRandomArbitrary(min, max) {
+  return Math.random() * (max - min) + min;
+}
+
+var noodles = [ {value: 15, name: 'Ненадійне джерело інформації'}, {value: 5, name: 'Недостовірна новина'}, 
+		{value: 20, name: 'Маніпулятивний заголовок'}, {value: 7, name: 'Фейк'}, 
+		{value: 5, name: 'Маніпуляції з емоціями'}, {value: 4, name: 'Мова ворожнечі'}]
+
+
+//////////////////// functions to create "text along path" ////////////////
+var createAlignedText = function(str, path, style) {
+    if (str && str.length > 0 && path) {
+        // create PointText object for each glyph
+        var glyphTexts = [];
+        for (var i = 0; i < str.length; i++) {
+            glyphTexts[i] = createPointText(str.substring(i, i+1), style);
+            glyphTexts[i].justification = "center";
+        }
+        // for each glyph find center xOffset
+        var xOffsets = [0];
+        for (var i = 1; i < str.length; i++) {
+            var pairText = createPointText(str.substring(i - 1, i + 1), style);
+            pairText.remove();
+            xOffsets[i] = xOffsets[i - 1] + pairText.bounds.width - 
+                glyphTexts[i - 1].bounds.width / 2 - glyphTexts[i].bounds.width / 2;
+        }
+        // set point for each glyph and rotate glyph aorund the point
+        for (var i = 0; i < str.length; i++) {
+            var centerOffs = xOffsets[i];
+            if (path.length < centerOffs) {
+                if (path.closed) {
+                    centerOffs = centerOffs % path.length;
+                }  else {
+                    centerOffs = undefined;
+                }
+            }
+            if (centerOffs === undefined) {
+                glyphTexts[i].remove();
+            } else {
+                var pathPoint = path.getPointAt(centerOffs);
+                glyphTexts[i].point = pathPoint;
+                var tan = path.getTangentAt(centerOffs); 
+                if(tan){ 
+                  glyphTexts[i].rotate(tan.angle, pathPoint);
+		  glyphTexts[i].point += [-5, 0]
+                } 
+            }
+        }
+    }
+}
+
+// create a PointText object for a string and a style
+var createPointText = function(str, style) {
+    var text = new PointText();
+    text.content = str;
+    if (style) {
+        if (style.font) text.font = style.font;
+        if (style.fontFamily) text.fontFamily = style.fontFamily;
+        if (style.fontSize) text.fontSize = style.fontSize;
+        if (style.fontWeight) text.fontWeight = style.fontWeight;
+        if (style.fillColor) text.fillColor = style.fillColor;
+    }
+    return text;
+}
+
+////////////////  EOF text along path
+
+
+
+// function to draw one noodle
+function noodle(num_points, start_point){
+
+  // The amount of points in the path:
+  var points = num_points;
+  
+  // The distance between the points:
+  var length = 40;
+  
+  var path = new Path({
+  	strokeColor: 'gold',
+  	strokeWidth: 18,
+  	strokeCap: 'round'
+  });
+  
+  var start = start_point / [1, 100];
+  var prev_point = start;
+  path.add(start);
+  
+  // to generate slightly curved noodle
+  for (var i = 1; i < points; i++){
+  	var segment = path.segments[i-1];
+  	var prev_point = segment.point;
+  	phi = getRandomArbitrary(-Math.PI/25, Math.PI/25);
+	if(i == points){ // last point
+  	  path.add( new Point(start.x, prev_point.y + length) );
+	} else { // for all points except last one, tilt segment with some randome angle
+  	  path.add(prev_point + new Point(length * Math.sin(phi), length*Math.cos(phi)));
+	}
+  }
+  
+  path.smooth({ type: 'continuous' });
+  return path;
+  
+}
+
+
+
+// loop to create all noodles (static)
+for(var i = 0; i < noodles.length; i++){
+	noodles[i].path = noodle(noodles[i].value, new Point(200 + 70*i, 0));
+        // comment this if you dont want names inside noodles
+	createAlignedText("     " + noodles[i].name, noodles[i].path, 
+				{fontSize: 15, 
+				 fontFamily: 'Arial', 
+				 fillColor: "white", 
+				 fontWeight: "bold" });
+}
+
+
+
+
+// Animate noodles
+var amount = 0.5;
+function onFrame(event) {
+  for(var k = 0; k < noodles.length; k++){
+    var path = noodles[k].path;
+    var n_segments = path.segments.length;
+    if(n_segments >= 7){
+	// Loop through the segments of the path:
+	for (var i = 1; i <= Math.floor(n_segments*amount); i++) {
+                
+		var segment = path.segments[n_segments - i];
+
+		// A cylic value between -1 and 1
+		var sinus = Math.sin(event.time * 2 + i);
+	
+		var sign = k % 2 ? -1 : 1;	
+		// Change the y position of the segment point:
+		segment.point.x += sign * sinus / (i*5);
+	}
+    }
+  }
+}
+
+
+
+</script>
+</head>
+<body>
+	<canvas id="myCanvas" resize></canvas>
+</body>
+</html>
