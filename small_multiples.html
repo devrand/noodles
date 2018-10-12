@@ -2,143 +2,116 @@
 <html>
 <head>
 <meta charset="UTF-8"/>
-<style>
-  canvas{
-    width: 100%;
-    height: 100%;
-  }
-
-
-  .rotate-text {
-
-position: absolute;
-
-width: 300px;
-
-transform: rotate(-90deg);
-
-float: left;
-
-top: -50px;
-
-left: 240px;
-
-text-align: right;
-
-font-family: Arial;
-font-size: 12px;
-
-  }
-
-
-  .rotate-text div{
-    margin-bottom: 57px;
-
-  }
-
-</style>
-
-<!-- Load the Paper.js library -->
-<script type="text/javascript" src="js/paper.js"></script>
-<!-- Define inlined PaperScript associate it with myCanvas -->
-<script type="text/paperscript" canvas="myCanvas">
-// Adapted from the following Processing example:
-// http://processing.org/learning/topics/follow3.html
-
-function getRandomArbitrary(min, max) {
-  return Math.random() * (max - min) + min;
-}
-
-var noodles = [ {value: 15, name: 'Ненадійне джерело інформації'}, {value: 5, name: 'Недостовірна новина'}, 
-		{value: 20, name: 'Маніпулятивний заголовок'}, {value: 7, name: 'Фейк'}, 
-		{value: 5, name: 'Маніпуляції з емоціями'}, {value: 4, name: 'Мова ворожнечі'}]
-
-
-
-
-// function to draw one noodle
-function noodle(num_points, start_point){
-
-  // The amount of points in the path:
-  var points = num_points;
-  
-  // The distance between the points:
-  var length = 40;
-  
-  var path = new Path({
-  	strokeColor: 'gold',
-  	strokeWidth: 18,
-  	strokeCap: 'round'
-  });
-  
-  var start = start_point / [1, 100];
-  var prev_point = start;
-  path.add(start);
-  
-  // to generate slightly curved noodle
-  for (var i = 1; i < points; i++){
-  	var segment = path.segments[i-1];
-  	var prev_point = segment.point;
-  	phi = getRandomArbitrary(-Math.PI/25, Math.PI/25);
-	if(i == points){ // last point
-  	  path.add( new Point(start.x, prev_point.y + length) );
-	} else { // for all points except last one, tilt segment with some randome angle
-  	  path.add(prev_point + new Point(length * Math.sin(phi), length*Math.cos(phi)));
-	}
-  }
-  
-  path.smooth({ type: 'continuous' });
-  return path;
-  
-}
-
-
-
-// loop to create all noodles (static)
-for(var i = 0; i < noodles.length; i++){
-	noodles[i].path = noodle(noodles[i].value, new Point(200 + 70*i, 0));
-}
-
-
-
-
-// Animate noodles
-var amount = 0.5;
-function onFrame(event) {
-  for(var k = 0; k < noodles.length; k++){
-    var path = noodles[k].path;
-    var n_segments = path.segments.length;
-    if(n_segments >= 2){
-	// Loop through the segments of the path:
-	for (var i = 1; i <= Math.floor(n_segments*amount); i++) {
-                
-		var segment = path.segments[n_segments - i];
-
-		// A cylic value between -1 and 1
-		var sinus = Math.sin(event.time * 2);
-	
-		var sign = k % 2 ? -1 : 1;	
-		// Change the x position of the segment point:
-		segment.point.x +=  sign * sinus / (i*5);
-	}
-    }
-  }
-}
-
-
-
-</script>
 </head>
 <body>
-	<canvas id="myCanvas" resize></canvas>
-        <div class="rotate-text">
-		<div>Ненадійне джерело інформації</div>
-		<div>Недостовірна новина</div>
-		<div>Маніпулятивний заголовок</div>
-		<div>Фейк</div>
-		<div>Маніпуляції з емоціями</div>
-		<div>Мова ворожнечі</div>
-       </div>
-        
+<script type="text/javascript" src="js/d3.js"></script>
+
+<script>
+// d3 version 5 below...
+
+
+// make a curved noodle 
+  var curve_it = function(lineData){ 
+    var  newLineData  = [lineData[0]];
+    for(var i = 1; i < lineData.length; i++  ){
+      var phi = getRandomArbitrary(-Math.PI/150, Math.PI/150);
+      var prev_point = lineData[i-1];
+      newLineData[i] = { x: prev_point.x + length * Math.sin(phi), y: prev_point.y + length*Math.cos(phi) }
+    } 
+
+    return newLineData;
+  }
+
+
+// random number in any interval [min, max]
+  function getRandomArbitrary(min, max) {
+    return Math.random() * (max - min) + min;
+  }
+
+
+  var length = 5; // 
+  var width = 100;
+  var height = 200;
+
+//The data for our line
+  var prepare_data = function(d){
+    var data = d.points.map(function(d, i){
+      var lineData = d3.range(1, d, 2).map(function(d){ return {x:(i+1), y:d} });
+      return curve_it(lineData);
+    })
+    return data;
+  }
+
+
+  var xScale = d3.scaleLinear()
+    .domain([0, 7]) // input
+    .range([0, width]); // output
+
+  var yScale = d3.scaleLinear()
+    .domain([0, 50]) // input 
+    .range([0, height]); // output 
+
+
+  var lineFunction = d3.line() 
+                         .x(function(d) { return xScale(d.x); })
+                         .y(function(d) { return yScale(d.y); })
+			 .curve(d3.curveCatmullRom.alpha(0.5));
+
+
+//The SVG Container
+  var svgContainer = d3.select("body").append("svg")
+                                      .attr("width", 1000)
+                                      .attr("height", 1000);
+  
+
+
+  var columns = 10; // 10 charts in one row
+
+// Main work is here
+  var main =  function (data){
+
+    data.reverse(); // bad sites first
+    var boxes = svgContainer.selectAll("g.smallmult")
+	.data(data)
+	.enter().append("g")
+	  .attr("class", "smallmult")
+        //.attr("width", width)
+        //.attr("height", height)
+	  .attr("transform", function(d,i){ 
+ 				var xshift = (i % columns) * width;
+				var yshift = ~~(i / columns) * height + 15; 
+				return "translate(" + xshift + "," + yshift + ")"} )
+
+        boxes.selectAll("path")
+                    .data(function(d){return prepare_data(d);})
+                    .enter().append("path")     
+                      .attr("stroke", "gold")
+                      .attr("stroke-width", 7)
+                      .attr("class", "line")
+                      .attr("stroke-linecap", "round")
+                      .attr("fill", "none")
+                      .attr("d", function(d){ return d[0] ? lineFunction(d)  : '';});
+
+
+       boxes
+       .append("text")
+       .attr("x", width/3)
+       .attr("y", -15)
+       .attr("dy", ".9em")
+       .attr("text-anchor", "start")
+       .attr("font-size", "0.7em")
+       .attr("font-family", "Arial")
+       .attr("fill", "gray")
+       .text(function(d) { return d.site});
+  }
+
+  d3.csv("./data/ranking_by_sum.csv", 
+       function(d){ return { site: d.site, position: d.Rank, 
+			     points: [+d.total_fake, +d.hate_speech, +d.emotions, 
+					 +d.fake, +d.title ,+d.nonreliable ]} })
+  .then( function(data) { main(data); })
+
+</script>
 </body>
-</html>
+
+
