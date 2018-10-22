@@ -36,7 +36,7 @@
 //The data for our line
   var prepare_data = function(d){
     var data = d.points.map(function(d, i){
-      var lineData = d3.range(1, d, 2).map(function(d){ return {x:(i+1), y:d} });
+      var lineData = d3.range(1, d).map(function(d){ return {x:(i+1), y:d} });
       return curve_it(lineData);
     })
     return data;
